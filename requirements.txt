@@ -2,7 +2,7 @@ matplotlib
 agate
 psutil
 botocore
-pandas==0.24.1
+pandas
 ray>=0.5
 dask>=0.18
 distributed>=1.22
