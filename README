@@ -37,4 +37,8 @@ ulimit -Sn 10000
 # python3 tbl2csv.py TODO
 
 - S3
-- create S3 bucket (s3filter)
+- create S3 bucket (s3filter-289785222077)
+- index
+# /access_method_benchmark/shards-1GB/index/index_lineitem_{}.csv
+- data
+# /access_method_benchmark/shards-1GB/lineitem_{}.csv
