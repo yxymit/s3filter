@@ -2,10 +2,11 @@
 """Operator support
 
 """
-import cPickle
+# import cPickle
 import cProfile
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 import multiprocessing
 # import threading
 import time
@@ -195,7 +196,8 @@ class Operator(HandlerBase):
             if self.use_shared_mem:
                 self.system.send(self.name, StartMessage(), None)
             else:
-                m = cPickle.dumps(StartMessage())
+                # m = cPickle.dumps(StartMessage())
+                m = pickle.dumps(StartMessage())
                 self.queue.put(m)
         else:
             self.run()
@@ -445,7 +447,8 @@ class Operator(HandlerBase):
             if self.use_shared_mem:
                 self.system.send('system', OperatorCompletedMessage(self.worker.name), self.worker)
             else:
-                p_msg = cPickle.dumps(OperatorCompletedMessage(self.name))
+                # p_msg = cPickle.dumps(OperatorCompletedMessage(self.name))
+                p_msg = pickle.dumps(OperatorCompletedMessage(self.name))
                 self.completion_queue.put(p_msg)
 
             self.__completed = True

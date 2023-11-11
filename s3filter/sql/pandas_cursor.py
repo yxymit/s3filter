@@ -2,7 +2,7 @@
 """Cursor support
 
 """
-import cStringIO
+# import cStringIO
 import io
 import math
 
@@ -119,7 +119,7 @@ class PandasCursor(object):
         else:
             # Note:
             #
-            # CSV files use | as a delimiter and have a trailing delimiter so record delimiter is |\n
+            # CSV files use | as a delimiter and have a trailing delimiter so record delimiter is |\n (no trailing | in lineitem data)
             #
             # NOTE: As responses are chunked the file headers are only returned in the first chunk.
             # We ignore them for now just because its simpler. It does mean the records are returned as a list
@@ -132,7 +132,7 @@ class PandasCursor(object):
                     ExpressionType='SQL',
                     Expression=self.s3sql,
                     InputSerialization={
-                        'CSV': {'FileHeaderInfo': 'Use', 'RecordDelimiter': '|\n', 'FieldDelimiter': '|'}},
+                        'CSV': {'FileHeaderInfo': 'Use', 'RecordDelimiter': '\n', 'FieldDelimiter': '|'}},
                     OutputSerialization={'CSV': {}}
                 )
             elif self.input is Format.PARQUET:
@@ -163,7 +163,8 @@ class PandasCursor(object):
 
         prev_record_str = None
 
-        records_str_rdr = cStringIO.StringIO()
+        # records_str_rdr = cStringIO.StringIO()
+        records_str_rdr = io.StringIO()
         for event in self.event_stream:
 
             if 'Records' in event:
@@ -174,8 +175,8 @@ class PandasCursor(object):
 
                 self.time_to_last_record_response = elapsed_time
 
-                # records_str = event['Records']['Payload'].decode('utf-8')
-                records_str = event['Records']['Payload']
+                records_str = event['Records']['Payload'].decode('utf-8')
+                # records_str = event['Records']['Payload']
 
                 if prev_record_str is not None:
                     records_str_rdr.write(prev_record_str)
@@ -196,7 +197,8 @@ class PandasCursor(object):
                     df = pd.read_csv(records_str_rdr, header=None, prefix='_', dtype=numpy.str, engine='c',
                                      quotechar='"', na_filter=False, compression=None, low_memory=False)
                     records_str_rdr.close()
-                    records_str_rdr = cStringIO.StringIO()
+                    # records_str_rdr = cStringIO.StringIO()
+                    records_str_rdr = io.StringIO()
                     yield df
 
                 # Strangely the reading with the python csv reader and then loading into a dataframe "seems" faster than
@@ -251,7 +253,8 @@ class PandasCursor(object):
         try:
             if self.input is Format.CSV:
                 if self.table_data and len(self.table_data.getvalue()) > 0:
-                    ip_stream = cStringIO.StringIO(self.table_data.getvalue().decode('utf-8'))
+                    # ip_stream = cStringIO.StringIO(self.table_data.getvalue().decode('utf-8'))
+                    ip_stream = io.StringIO(self.table_data.getvalue().decode('utf-8'))
                 elif os.path.exists(self.table_local_file_path):
                     ip_stream = self.table_local_file_path
                 else:
@@ -268,10 +271,10 @@ class PandasCursor(object):
                     # Get read bytes
                     self.bytes_returned += ip_stream.tell()
 
-                    # drop last column since the line separator | creates a new empty column at the end of every record
-                    df_col_names = list(df)
-                    last_col = df_col_names[-1]
-                    df.drop(last_col, axis=1, inplace=True)
+                    # # drop last column since the line separator | creates a new empty column at the end of every record
+                    # df_col_names = list(df)
+                    # last_col = df_col_names[-1]
+                    # df.drop(last_col, axis=1, inplace=True)
 
                     yield df
             elif self.input is Format.PARQUET:

@@ -156,9 +156,11 @@ class CostEstimator:
         s3_region = AWSRegion.NOT_AWS
 
     import platform
+    import distro
     pltfrm = platform.system()
     if pltfrm == 'Linux':
-        dist = platform.linux_distribution()[0].lower()
+        # dist = platform.linux_distribution()[0].lower()
+        dist = distro.linux_distribution()[0].lower()
         if "RedHat".lower() in dist or "Red Hat".lower() in dist:
             os_type = EC2InstanceOS.RedHat
         elif "SUSE".lower() in dist:

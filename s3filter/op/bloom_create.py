@@ -13,7 +13,8 @@ from s3filter.op.message import TupleMessage, BloomMessage
 from s3filter.op.sql_table_scan_bloom_use import SQLTableScanBloomUse
 from s3filter.hash.sliced_bloom_filter import SlicedBloomFilter
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 import pandas as pd
 
 

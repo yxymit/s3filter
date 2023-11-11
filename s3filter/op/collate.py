@@ -3,7 +3,8 @@
 
 """
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 import sys
 
 import pandas as pd
@@ -82,7 +83,7 @@ class Collate(Operator):
         elif isinstance(m, DataFrameMessage):
             self.__on_receive_dataframe(m.dataframe)
         elif isinstance(m, StringMessage):
-            print m.string_
+            print(m.string_)
         else:
             raise Exception("Unrecognized message {}".format(m))
 

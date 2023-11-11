@@ -3,8 +3,9 @@
 
 """
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle
-import cPickle as pickle
+# import cPickle
+# import cPickle as pickle
+import pickle
 import traceback
 import warnings
 from collections import OrderedDict, deque
@@ -215,7 +216,8 @@ class QueryPlan(object):
                 return
             else:
                 o = self.operators[operator_name]
-                o.queue.put(cPickle.dumps(message, cPickle.HIGHEST_PROTOCOL))
+                # o.queue.put(cPickle.dumps(message, cPickle.HIGHEST_PROTOCOL))
+                o.queue.put(pickle.dumps(message, pickle.HIGHEST_PROTOCOL))
 
     def print_metrics(self):
 
@@ -326,11 +328,15 @@ class QueryPlan(object):
     def execute(self):
 
         if self.is_async:
-            map(lambda o: o.init_async(self.queue, self.system, self.use_shared_mem), self.operators.values())
+            # map(lambda o: o.init_async(self.queue, self.system, self.use_shared_mem), self.operators.values())
+            for o in self.operators.values():
+                o.init_async(self.queue, self.system, self.use_shared_mem)
             if self.use_shared_mem:
                 self.system.start()
             else:
-                map(lambda o: o.boot(), self.operators.values())
+                # map(lambda o: o.boot(), self.operators.values())
+                for o in self.operators.values():
+                    o.boot()
 
         # Find the root operators
         root_operators = self.find_root_operators()
@@ -374,7 +380,9 @@ class QueryPlan(object):
                     # Don't need to request metrics
                     pass
 
-            map(lambda op: op.set_completed(True), self.operators.values())
+            # map(lambda op: op.set_completed(True), self.operators.values())
+            for op in self.operators.values():
+                op.set_completed(True)
 
     def listen(self, message_type):
         # type: (TypeVar[MessageBase]) -> MessageBase
@@ -385,7 +393,8 @@ class QueryPlan(object):
             else:
                 while True:
                     p_item = self.queue.get()
-                    item = cPickle.loads(p_item)
+                    # item = cPickle.loads(p_item)
+                    item = pickle.loads(p_item)
                     # print(item)
 
                     if type(item) == message_type:
@@ -408,14 +417,21 @@ class QueryPlan(object):
                 self.system.join()
                 self.system.close()
             else:
-                map(lambda o: o.queue.put(cPickle.dumps(StopMessage())), filter(lambda o: o.async_, self.operators.values()))
+                # map(lambda o: o.queue.put(cPickle.dumps(StopMessage())), filter(lambda o: o.async_, self.operators.values()))
+                for o in filter(lambda o: o.async_, self.operators.values()):
+                    o.queue.put(pickle.dumps(StopMessage()))
+
                 self.join()
-                map(lambda o: o.queue.close(), filter(lambda o: o.async_, self.operators.values()))
+                # map(lambda o: o.queue.close(), filter(lambda o: o.async_, self.operators.values()))
+                for o in filter(lambda o: o.async_, self.operators.values()):
+                    o.queue.close()
         else:
             pass
 
     def join(self):
-        return map(lambda o: o.join(), self.operators.values())
+        # return map(lambda o: o.join(), self.operators.values())
+        for o in self.operators.values():
+            o.join()
 
     def get_phase_runtime(self, phase_keyword=None):
         phase_operators = [op for op in self.operators.values() if phase_keyword in op.name]

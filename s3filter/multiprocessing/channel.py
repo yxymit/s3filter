@@ -1,5 +1,6 @@
 # noinspection PyCompatibility
-import cPickle
+# import cPickle
+import pickle
 import warnings
 from ctypes import c_char
 from multiprocessing import RawArray
@@ -62,7 +63,8 @@ class Channel(object):
 
     @staticmethod
     def __pickle(packet):
-        return cPickle.dumps(packet, cPickle.HIGHEST_PROTOCOL)
+        # return cPickle.dumps(packet, cPickle.HIGHEST_PROTOCOL)
+        return pickle.dumps(packet, pickle.HIGHEST_PROTOCOL)
 
     def available(self):
         return self.__owner is None
@@ -112,7 +114,8 @@ class Channel(object):
 
     @staticmethod
     def __unpickle(pickled_msg):
-        return cPickle.loads(pickled_msg)
+        # return cPickle.loads(pickled_msg)
+        return pickle.loads(pickled_msg)
 
     def close(self):
         self.__queue.close()

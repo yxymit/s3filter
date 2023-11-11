@@ -4,7 +4,8 @@
 """
 from s3filter.op.sql_table_scan import SQLTableScan
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 
 
 class TableScan(SQLTableScan):

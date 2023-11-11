@@ -18,7 +18,8 @@ from s3filter.plan.cost_estimator import CostEstimator
 # from s3filter.sql.native_cursor import NativeCursor
 from s3filter.util.constants import *
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 
 from s3filter.sql.pandas_range_cursor import PandasRangeCursor
 import pandas as pd

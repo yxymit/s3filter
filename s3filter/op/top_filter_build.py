@@ -7,7 +7,8 @@ from s3filter.op.operator_base import Operator
 from s3filter.op.message import DataFrameMessage, StringMessage
 from s3filter.op.tuple import Tuple, IndexedTuple
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 import pandas as pd
 import time
 
@@ -58,7 +59,7 @@ class TopKFilterBuild(Operator):
             self.threshold = df.min().values[0]
             where_clause = ' where {} >= {}'.format(self.pred, self.threshold)
         sql = '{} {};'.format(self.s3sql, where_clause)
-        print sql
+        print(sql)
         self.send(  StringMessage(sql), self.consumers)
 
     def on_producer_completed(self, producer_name):

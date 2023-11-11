@@ -7,8 +7,8 @@ from s3filter.op.operator_base import Operator
 from s3filter.op.message import TupleMessage
 from s3filter.op.tuple import Tuple
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
-
+# import cPickle as pickle
+import pickle
 
 class NestedLoopJoinMetrics(OpMetrics):
     """Extra metrics for a project

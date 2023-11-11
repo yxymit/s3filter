@@ -1,23 +1,29 @@
-- create an EC2 instance on AWS (MainServer_demo)
-- attach IAM role (EC2_role) to the instance
+- create an EC2 Ubuntu instance on AWS (MainServer_demo)
+- use IMDSv1 for meta data service
+- attach IAM role (EC2_role) to the instance for access to lambda and S3
 - WARN: stop instance rather than terminate, unless you know what you are doing
 
-- setup
-sudo yum -y update
-# sudo yum -y install python-minimal graphviz libgraphviz-dev graphviz-dev pkg-config python-pip awscli
-sudo yum -y install graphviz pkg-config python-pip awscli
+
 pip install -r requirements.txt
 
 
-# install primesieve
-# git clone --recursive https://github.com/hickford/primesieve-python
-# cd primesieve-python
-# pip install . --upgrade
+- setup conda for package management
+# mkdir -p ~/miniconda3_1
+# wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3_1/miniconda.sh
+# bash ~/miniconda3_1/miniconda.sh -b -u -p ~/miniconda3_1
+# rm -rf ~/miniconda3_1/miniconda.sh
 
-# export PYTHONPATH=/home/ubuntu/s3filter
+- env 
+# sudo apt -y update
+# sudo apt -y install graphviz pkg-config awscli libgraphviz-dev graphviz-dev python3-dev gcc
+# export PYTHONPATH=/home/ubuntu/s3filter_cloud
 
-ulimit -Sn 10000
-
+- repo
+# git clone https://github.com/LongEarW/s3filter_cloud.git
+- packages (not include python-minimal python-pip)
+# ~/miniconda3_1/bin/conda install -c conda-forge python-primesieve
+# ~/miniconda3_1/bin/pip3 install -r requirements.txt
+# export PATH="/home/ubuntu/miniconda3_1/bin/python3:$PATH"
 
 - Prepare data
 - downlaod tool from TPC (https://www.tpc.org/tpc_documents_current_versions/current_specifications5.asp) and generate data
@@ -34,11 +40,11 @@ ulimit -Sn 10000
 # ...
 
 - convert TPC-H dataset to CSV
-# python3 tbl2csv.py TODO
+# python3 tbl2csv.py
 
 - S3
 - create S3 bucket (s3filter-289785222077)
 - index
-# /access_method_benchmark/shards-1GB/index/index_lineitem_{}.csv
+# /access_method_benchmark/shards-1GB/index/index.lineitem.{}.csv
 - data
-# /access_method_benchmark/shards-1GB/lineitem_{}.csv
+# /access_method_benchmark/shards-1GB/lineitem.{}.csv

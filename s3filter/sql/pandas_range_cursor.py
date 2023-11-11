@@ -2,7 +2,8 @@
 """Cursor support
 
 """
-import cStringIO
+# import cStringIO
+import io
 import csv
 import timeit
 
@@ -113,7 +114,9 @@ class PandasRangeCursor(object):
             pool.join()
             record_str = ''.join(results) 
             self.bytes_returned += len(record_str)
-            df = pd.read_csv(cStringIO.StringIO(record_str), sep='|', header=None, prefix='_', dtype=numpy.str, engine='c',
+            # df = pd.read_csv(cStringIO.StringIO(record_str), sep='|', header=None, prefix='_', dtype=numpy.str, engine='c',
+            #                          quotechar='"', na_filter=False, compression=None, low_memory=False)
+            df = pd.read_csv(io.StringIO(record_str), sep='|', header=None, prefix='_', dtype=numpy.str, engine='c',
                                      quotechar='"', na_filter=False, compression=None, low_memory=False)
             yield df
         else:
