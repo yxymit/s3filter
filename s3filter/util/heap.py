@@ -85,7 +85,7 @@ class Heap(object):
      This is mainly because the python's implementation of heap (heapq) supports only min heap.
     """
 
-    def __init__(self, max_size=sys.maxint):
+    def __init__(self, max_size=sys.maxsize):  # sys.maxint
         self.heap_list = []
         self.max_size = max_size
 

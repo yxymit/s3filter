@@ -1,10 +1,7 @@
-- create an EC2 Ubuntu instance on AWS (MainServer_demo)
+- create an EC2 Ubuntu instance on AWS (MainServerSetup)
 - use IMDSv1 for meta data service
 - attach IAM role (EC2_role) to the instance for access to lambda and S3
 - WARN: stop instance rather than terminate, unless you know what you are doing
-
-
-pip install -r requirements.txt
 
 
 - setup conda for package management
@@ -13,14 +10,14 @@ pip install -r requirements.txt
 # bash ~/miniconda3_1/miniconda.sh -b -u -p ~/miniconda3_1
 # rm -rf ~/miniconda3_1/miniconda.sh
 
-- env 
+- env (not include python-minimal python-pip)
 # sudo apt -y update
 # sudo apt -y install graphviz pkg-config awscli libgraphviz-dev graphviz-dev python3-dev gcc
 # export PYTHONPATH=/home/ubuntu/s3filter_cloud
 
 - repo
 # git clone https://github.com/LongEarW/s3filter_cloud.git
-- packages (not include python-minimal python-pip)
+- packages 
 # ~/miniconda3_1/bin/conda install -c conda-forge python-primesieve
 # ~/miniconda3_1/bin/pip3 install -r requirements.txt
 # export PATH="/home/ubuntu/miniconda3_1/bin/python3:$PATH"
@@ -45,6 +42,6 @@ pip install -r requirements.txt
 - S3
 - create S3 bucket (s3filter-289785222077)
 - index
-# /access_method_benchmark/shards-1GB/index/index.lineitem.{}.csv
+# access_method_benchmark/shards-1GB/index/index.lineitem.{}.csv
 - data
-# /access_method_benchmark/shards-1GB/lineitem.{}.csv
+# access_method_benchmark/shards-1GB/lineitem.{}.csv
