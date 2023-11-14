@@ -340,3 +340,194 @@ class SQLTableScan(Operator):
 
 def is_header(tuple_):
     return all([type(field) == str and field.startswith('_') for field in tuple_])
+
+class SQLTableScanLambdaMetrics(OpMetrics):
+    """Extra metrics for a sql table scan
+    """
+
+    def __init__(self):
+        super(SQLTableScanLambdaMetrics, self).__init__()
+
+        self.rows_returned = 0
+
+        self.time_to_first_response = 0
+        self.time_to_first_record_response = None
+        self.time_to_last_record_response = None
+
+        self.query_bytes = 0
+        self.bytes_scanned = 0
+        self.bytes_processed = 0
+        self.bytes_returned = 0
+        self.num_http_get_requests = 0
+
+        self.cost_estimator = CostEstimator(self)
+
+    def cost(self):
+        """
+        Estimates the cost of the scan operation based on S3 pricing in the following page:
+        <https://aws.amazon.com/s3/pricing/>
+        :return: The estimated cost of the table scan operation
+        """
+        return self.cost_estimator.estimate_cost()
+
+    def computation_cost(self, running_time=None, ec2_instance_type=None, os_type=None):
+        """
+        Estimates the computation cost of the scan operation based on EC2 pricing in the following page:
+        <https://aws.amazon.com/ec2/pricing/on-demand/>
+        :param running_time: the query running time
+        :param ec2_instance_type: the type of EC2 instance as defined by AWS
+        :param os_type: the name of the os running on the host machine (Linux, Windows ... etc)
+        :return: The estimated computation cost of the table scan operation given the query running time
+        """
+        return self.cost_estimator.estimate_computation_cost(running_time, ec2_instance_type, os_type)
+
+    def data_cost(self, ec2_region=None):
+        """
+        Estimates the cost of the scan operation based on S3 pricing in the following page:
+        <https://aws.amazon.com/s3/pricing/>
+        :return: The estimated data transfer cost of the table scan operation
+        """
+        return self.cost_estimator.estimate_data_cost(ec2_region) + self.cost_estimator.estimate_request_cost()
+
+    def data_scan_cost(self):
+        """
+        Estimate the cost of S3 data scanning
+        :return: the estimated data scanning costin USD
+        """
+        return self.cost_estimator.estimate_data_scan_cost()
+
+    def data_transfer_cost(self, ec2_region=None, s3_region=None):
+        """
+        Estimate the cost of transferring data either by s3 select or normal data transfer fees
+        :param ec2_region: the region where the computing node resides
+        :param s3_region: the region where the s3 data is stored in
+        :return: the estimated data transfer cost in USD
+        """
+        return self.cost_estimator.estimate_data_transfer_cost(ec2_region, s3_region)
+
+    def requests_cost(self):
+        """
+        Estimate the cost of the http GET requests
+        :return: the estimated http GET request cost for this particular operation
+        """
+        return self.cost_estimator.estimate_request_cost()
+
+    def __repr__(self):
+        return {
+            'elapsed_time': round(self.elapsed_time(), 5),
+            'rows_returned': self.rows_returned,
+            'query_bytes': self.query_bytes,
+            'bytes_scanned': self.bytes_scanned,
+            'bytes_processed': self.bytes_processed,
+            'bytes_returned': "{} ({} MB / {} GB)".format(
+                self.bytes_returned,
+                round(float(self.bytes_returned) / 1000000.0, 5),
+                round(float(self.bytes_returned) / 1000000000.0, 5)),
+            'bytes_returned_per_sec': "{} ({} MB / {} GB)".format(
+                round(float(self.bytes_returned) / self.elapsed_time(), 5),
+                round(float(self.bytes_returned) / self.elapsed_time() / 1000000, 5),
+                round(float(self.bytes_returned) / self.elapsed_time() / 1000000000, 5)),
+            'time_to_first_response': round(self.time_to_first_response, 5),
+            'time_to_first_record_response':
+                None if self.time_to_first_record_response is None
+                else round(self.time_to_first_record_response, 5),
+            'time_to_last_record_response':
+                None if self.time_to_last_record_response is None
+                else round(self.time_to_last_record_response, 5),
+            # 'cost': "${0:.8f}".format(self.cost()),
+            # 'cost_for_instance': self.cost_estimator.ec2_instance
+        }.__repr__()
+
+
+class SQLTableScanLambda(Operator):
+    """Represents a table scan operator which invoke a AWS Lambda that reads from an s3 table partiton, receive tuples emits tuples to consuming operators
+    as they are received. Generally starting this operator is what begins a query.
+    """
+
+    def on_receive(self, ms, producer_name):
+        """Receive query SQL"""
+        for m in ms:
+            if type(m) is StringMessage:
+                self.s3sql = m.string_
+                if self.async_:
+                    self.query_plan.send(StartMessage(), self.name, self)
+                else:
+                    self.run()
+            else:
+                raise Exception("Unrecognized message {}".format(m))
+
+    def __init__(self, s3key, select_fields, filter_expr, name, query_plan, log_enabled):
+        """Creates a new Table Scan operator using the given s3 object key and s3 select sql
+        :param s3key: The object key to select against
+        :param select_fields: The fileds to query
+        :param filter_expr: The filtering expression
+        """
+        super(SQLTableScanLambda, self).__init__(name, SQLTableScanLambdaMetrics(), query_plan, log_enabled)
+
+        # target data
+        self.s3key = s3key  # 'access_method_benchmark/shards-1GB/lineitem.1.csv'
+        self.select_fields = select_fields  # "[l_orderkey, l_extendedprice]" => "_0|_5"
+        
+        self.filter_expr = filter_expr  # "l_orderkey == '1'" => "_0 == '1'"
+
+        # lambda: Boto is not thread safe, hence one client for each operator
+        self.lambda_name = "demo_layers"    # ?????????????????
+        self.lambda_client = boto3.client('lambda', region_name='us-east-2')
+
+        # data buffer
+        self.global_topk_df = pd.DataFrame()
+
+    def run(self):
+        """Executes the query and begins emitting tuples.
+        :return: None
+        """
+        self.do_run()
+
+    def do_run(self):
+
+        self.op_metrics.timer_start()
+
+        if self.log_enabled:
+            print("{} | {}('{}') | Started"
+                  .format(time.time(), self.__class__.__name__, self.name))
+
+        # Invoke the Lambda function
+        payload = {
+            "s3key": self.s3key,
+            "select_fields": self.select_fields,
+            "filter_expr": self.filter_expr
+        }
+
+        response = self.lambda_client.invoke(
+            FunctionName=self.lambda_name,
+            InvocationType='RequestResponse',  # Use 'Event' for asynchronous invocation
+            Payload=json.dumps(payload))
+
+        # parse Lambda response (not support streaming data)
+        response_payload = json.loads(response['Payload'].read().decode('utf-8'))['body']
+        response_payload = json.loads(response_payload)
+
+        # convert record to dataframe
+        for record in response_payload['data']:
+            new_row_df = pd.DataFrame([record])
+            self.global_topk_df = pd.concat([self.global_topk_df, new_row_df], ignore_index=True)
+
+        # TODO: parse metrics
+        print(response_payload['metrics'])
+        self.op_metrics.rows_returned += self.global_topk_df.shape[0]
+        # self.op_metrics.bytes_scanned = cur.bytes_scanned
+        # self.op_metrics.bytes_processed = cur.bytes_processed
+        self.op_metrics.bytes_returned = response_payload['metrics']['bytes_returned']
+        self.op_metrics.time_to_first_record_response = response_payload['metrics']['time_to_first_record_response']
+        self.op_metrics.time_to_last_record_response = response_payload['metrics']['time_to_last_record_response']
+        # self.op_metrics.num_http_get_requests = cur.num_http_get_requests
+
+
+        # send records to consumer
+        self.send(DataFrameMessage(self.global_topk_df), self.consumers)
+
+        # complete signal
+        if not self.is_completed():
+            self.complete()
+
+        self.op_metrics.timer_stop()
