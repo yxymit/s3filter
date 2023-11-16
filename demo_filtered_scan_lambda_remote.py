@@ -1,4 +1,4 @@
-"""Top K baseline
+"""Filter Scan with Lambda
 
 """
 import os
@@ -13,20 +13,24 @@ import pandas as pd
 
 
 def lambda_handler(event, context):
-    df, metrics = main(event)
-    response = {"data": df.to_dict(), "metrics": metrics}
-    return {
-        'statusCode': 200,
-        'body': json.dumps(response)
-    }
+    response = main(event)
+    return response
 
 def main(event):
     # parse arguments
     s3key = event['s3key']  # 'access_method_benchmark/shards-1GB/lineitem.1.csv'
     select_fields = event['select_fields'].split('|')  # "_0|_5" -> ['_0', '_5']
     filter_expr = event['filter_expr']  # "_0 == '1'"
+    # s3key = event['s3key'] = 'access_method_benchmark/shards-1GB/lineitem.1.csv'
+    # select_fields = ['_0', '_5']
+    # filter_expr = "_0 == '1'"
     file_format = "CSV"
-    return run(s3key=s3key, select_fields=select_fields, filter_expr=filter_expr, file_format=file_format)
+    # launch query
+    df, metrics = run(s3key=s3key, select_fields=select_fields, filter_expr=filter_expr, file_format=file_format)
+    # encode results
+    df_str = df.to_csv(sep='|', lineterminator='#', index=False)
+    met_str = str(metrics)
+    return str(len(met_str)) + met_str + df_str
 
 def run(s3key, select_fields, filter_expr, file_format):
     """Fetch file stream from S3 and filter according to expression, return a dataframe
@@ -62,8 +66,7 @@ def run(s3key, select_fields, filter_expr, file_format):
         Config=config
     )
 
-    # self.num_http_get_requests = PandasCursor.calculate_num_http_requests(self.table_data, config)
-
+    metrics["num_http_get_requests"] = 1
     # parse and filter stream
     chunksize = 10000  # number of rows 
 
@@ -90,5 +93,3 @@ def run(s3key, select_fields, filter_expr, file_format):
         raise Exception("Unrecognized input type '{}'".format(file_format))
 
     return global_df, metrics
-
-    # return buffer

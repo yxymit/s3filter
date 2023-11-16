@@ -3,8 +3,10 @@
 """
 import sys
 import time
+import json
 
 import pandas as pd
+import boto3
 from boto3 import Session
 from botocore.config import Config
 
@@ -476,6 +478,7 @@ class SQLTableScanLambda(Operator):
 
         # data buffer
         self.global_topk_df = pd.DataFrame()
+        self.chunk_size = 1024
 
     def run(self):
         """Executes the query and begins emitting tuples.
@@ -503,28 +506,34 @@ class SQLTableScanLambda(Operator):
             InvocationType='RequestResponse',  # Use 'Event' for asynchronous invocation
             Payload=json.dumps(payload))
 
-        # parse Lambda response (not support streaming data)
-        response_payload = json.loads(response['Payload'].read().decode('utf-8'))['body']
-        response_payload = json.loads(response_payload)
+        # parse Lambda response
+        response_payload = response['Payload']
+        # parse response info
+        chunk = response_payload.read(6).decode('utf-8')
+        metrics_start = chunk.find("{")
+        metrics_len = int(chunk[1: chunk.find("{")])
+        # parse metrics dictionary
+        tmp = chunk[metrics_start: ] + response_payload.read(metrics_start + metrics_len - 6).decode('utf-8')
+        metrics_parsed = json.loads(tmp.replace("\'", "\""))
+        print(metrics_parsed)
 
-        # convert record to dataframe
-        for record in response_payload['data']:
-            new_row_df = pd.DataFrame([record])
-            self.global_topk_df = pd.concat([self.global_topk_df, new_row_df], ignore_index=True)
+        # parse data by stream
+        for df in pd.read_csv(response_payload, delimiter='|', lineterminator='#', error_bad_lines=False, quoting=3,
+                                header=0,
+                                dtype=str, encoding='utf-8',
+                                engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
+                                chunksize=self.chunk_size):
+            # send records to consumer
+            self.send(DataFrameMessage(df), self.consumers)
 
         # TODO: parse metrics
-        print(response_payload['metrics'])
         self.op_metrics.rows_returned += self.global_topk_df.shape[0]
         # self.op_metrics.bytes_scanned = cur.bytes_scanned
         # self.op_metrics.bytes_processed = cur.bytes_processed
-        self.op_metrics.bytes_returned = response_payload['metrics']['bytes_returned']
-        self.op_metrics.time_to_first_record_response = response_payload['metrics']['time_to_first_record_response']
-        self.op_metrics.time_to_last_record_response = response_payload['metrics']['time_to_last_record_response']
+        self.op_metrics.bytes_returned = metrics_parsed['bytes_returned']
+        self.op_metrics.time_to_first_record_response = metrics_parsed['time_to_first_record_response']
+        self.op_metrics.time_to_last_record_response = metrics_parsed['time_to_last_record_response']
         # self.op_metrics.num_http_get_requests = cur.num_http_get_requests
-
-
-        # send records to consumer
-        self.send(DataFrameMessage(self.global_topk_df), self.consumers)
 
         # complete signal
         if not self.is_completed():

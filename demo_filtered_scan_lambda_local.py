@@ -7,7 +7,7 @@ import os
 
 from s3filter import ROOT_DIR
 from s3filter.op.collate import Collate
-from s3filter.op.sql_table_scan import SQLTableScan
+from s3filter.op.sql_table_scan import SQLTableScanLambda
 from s3filter.plan.query_plan import QueryPlan
 from s3filter.sql.format import Format
 from s3filter.util.test_util import gen_test_id
@@ -27,6 +27,7 @@ def main():
 def run(parallel, start_part, table_parts, path, select_fields, filter_expr):
     secure = False
     use_native = False
+    use_pandas = True
     buffer_size = 0
     print('')
     print("Lambda Scan Benchmark")

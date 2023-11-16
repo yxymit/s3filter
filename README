@@ -45,3 +45,9 @@
 # access_method_benchmark/shards-1GB/index/index.lineitem.{}.csv
 - data
 # access_method_benchmark/shards-1GB/lineitem.{}.csv
+
+- Lambda
+- Create IAM with access of S3
+- Create Lambda fucntion
+- Add Pandas package in function layor (arn:aws:lambda:us-east-2:336392948345:layer:AWSSDKPandas-Python38:11)
+- Attach IAM as excetion role
