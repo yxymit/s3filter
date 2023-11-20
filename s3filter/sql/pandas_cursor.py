@@ -252,24 +252,25 @@ class PandasCursor(object):
     def parse_file(self):
         try:
             if self.input is Format.CSV:
-                if self.table_data and len(self.table_data.getvalue()) > 0:
-                    # ip_stream = cStringIO.StringIO(self.table_data.getvalue().decode('utf-8'))
-                    ip_stream = io.StringIO(self.table_data.getvalue().decode('utf-8'))
-                elif os.path.exists(self.table_local_file_path):
-                    ip_stream = self.table_local_file_path
-                else:
-                    return
+                # if self.table_data and len(self.table_data.getvalue()) > 0:
+                #     # ip_stream = cStringIO.StringIO(self.table_data.getvalue().decode('utf-8'))
+                #     ip_stream = io.StringIO(self.table_data.getvalue().decode('utf-8'))
+                # elif os.path.exists(self.table_local_file_path):
+                #     ip_stream = self.table_local_file_path
+                # else:
+                #     return
 
                 self.time_to_first_record_response = self.time_to_last_record_response = self.timer.elapsed()
-
-                for df in pd.read_csv(ip_stream, delimiter='|',
+                self.table_data.seek(0)
+                for df in pd.read_csv(self.table_data, delimiter='|',
                                       header=None,
                                       prefix='_', dtype=numpy.str,
                                       engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
                                       skiprows=1,
                                       chunksize=10 ** 7):
                     # Get read bytes
-                    self.bytes_returned += ip_stream.tell()
+                    # self.bytes_returned += ip_stream.tell()
+                    self.bytes_returned += self.table_data.tell()
 
                     # # drop last column since the line separator | creates a new empty column at the end of every record
                     # df_col_names = list(df)

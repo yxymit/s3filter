@@ -13,7 +13,8 @@ from s3filter.op.operator_base import Operator
 from s3filter.op.message import TupleMessage
 from s3filter.op.predicate_expression import PredicateExpression
 # noinspection PyCompatibility,PyPep8Naming
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 
 from s3filter.sql.function import cast, timestamp
 
