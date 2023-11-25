@@ -7,12 +7,14 @@ import os
 from s3filter import ROOT_DIR
 from s3filter.op.collate import Collate
 from s3filter.op.filter import Filter
+from s3filter.op.project import Project
 from s3filter.op.predicate_expression import PredicateExpression
 from s3filter.op.sql_table_scan import SQLTableScan
 from s3filter.plan.query_plan import QueryPlan
 from s3filter.sql.format import Format
 from s3filter.util.test_util import gen_test_id
 import pandas as pd
+import numpy as np
 
 def main():
     run(True, True, 0, 1, 2, 'access_method_benchmark/shards-1GB', Format.CSV)
@@ -47,10 +49,30 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
                             log_enabled=False))
         )
 
+    # project
+    def pandas_fn(df):
+        """filtering logic for pandas dataframe"""
+        # select columns
+        df = df[['_0', '_5']]
+        df['_5'] = df['_5'].astype(np.float)  # convert dtype: l_extendedprice
+        return df
+
+    projects = []
+    for p in range(start_part, start_part + table_parts):
+        projects.append(
+            query_plan.add_operator(
+                Project(project_exprs=[], 
+                        name='local_project_{}'.format(p), 
+                        query_plan=query_plan, 
+                        log_enabled=False, 
+                        pandas_fn=pandas_fn))
+        )
+
     # filters
     def pd_expr(df):
         # expression for filtering condition
         return df['_0'] == '1'
+
     filters = []
     for p in range(start_part, start_part + table_parts):
         filters.append(
@@ -65,10 +87,11 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
     collate = query_plan.add_operator(Collate('collate', query_plan, False))
 
     # connect operators
-    for p, opt in enumerate(scans):
-        opt.connect(filters[p])
-    for p, opt in enumerate(filters):
-        opt.connect(collate)
+    for p in range(len(scans)):
+        scans[p].connect(projects[p])
+        projects[p].connect(filters[p])
+        filters[p].connect(collate)
+
 
     # Plan settings
     print('')
@@ -86,7 +109,7 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
     query_plan.execute()
     print('Done')
     tuples = collate.tuples()
-    collate.print_tuples(tuples)
+    # collate.print_tuples(tuples)
 
     # Write the metrics
     query_plan.print_metrics()
