@@ -20,15 +20,16 @@ def main(event):
     # parse arguments
     s3key = event['s3key']  # 'access_method_benchmark/shards-1GB/lineitem.1.csv'
     select_fields = event['select_fields'].split('|')  # "_0|_5" -> ['_0', '_5']
-    filter_expr = event['filter_expr']  # "_0 == '1'"
+    filter_expr = event['filter_expr']  # "_5 < 2000"
     # s3key = event['s3key'] = 'access_method_benchmark/shards-1GB/lineitem.1.csv'
     # select_fields = ['_0', '_5']
-    # filter_expr = "_0 == '1'"
+    # filter_expr = "_5 < 2000"  # "_0 = '1'"
     file_format = "CSV"
     # launch query
     df, metrics = run(s3key=s3key, select_fields=select_fields, filter_expr=filter_expr, file_format=file_format)
     # encode results
     df_str = df.to_csv(sep='|', lineterminator='#', index=False)
+    metrics["bytes_returned"] = len(df_str)
     met_str = str(metrics)
     return str(len(met_str)) + met_str + df_str
 
@@ -75,12 +76,11 @@ def run(s3key, select_fields, filter_expr, file_format):
         table_data.seek(0)
         for df in pd.read_csv(table_data, delimiter='|', lineterminator='\n',
                                 header=None,
-                                dtype=str,
                                 engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
                                 skiprows=1,
-                                chunksize=chunksize):
+                                chunksize=chunksize):  # dtype=str,
             # Get read bytes
-            metrics["bytes_returned"] += table_data.tell()
+            # metrics["bytes_returned"] += table_data.tell()
             # filter
             df.columns = ["_" + str(col) for col in df.columns]  # add prefix
             filtering_result = df.eval(filter_expr)

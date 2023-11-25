@@ -16,7 +16,7 @@ from s3filter.util.test_util import gen_test_id
 def main():
     path = 'access_method_benchmark/shards-1GB'
     select_fields = "_0|_5"  # [l_orderkey, l_extendedprice]
-    filter_expr =  "_0 == '1'"  # "l_orderkey == '1'"
+    filter_expr =  "_5 < 2000"  # "_0 == '1'"
     start_part = 1
     table_parts = 2 
     run(parallel=True, 
@@ -71,7 +71,6 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr):
     query_plan.execute()
     print('Done')
     tuples = collate.tuples()
-
     # collate.print_tuples(tuples)
 
     # Write the metrics
