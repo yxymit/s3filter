@@ -14,17 +14,20 @@ from s3filter.util.test_util import gen_test_id
 import boto3
 from datetime import datetime, timedelta
 import time
+from s3filter.util.constants import *
 
 
 # define lambda function name and region
 Lambda_Function_Name = 'demo_layers'
 Lambda_Region_Name = 'us-east-2'
 
+
 # lambda cost
 # for 512GB memory, arm: <https://aws.amazon.com/lambda/pricing/>
 COST_LAMBDA_DURATION_PER_SECOND = 0.0000067
 COST_LAMBDA_REQUEST_PER_REQ = 0.0000002
-
+# EC2 in and out different AZ
+COST_LAMBDA_DATA_TRANSFER_PER_GB = 0.01
 
 def main():
     path = 'access_method_benchmark/shards-1GB'
@@ -84,34 +87,48 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     # Start the query
     query_plan.execute()
     print('Done')
+    # START_TIME is for cloudwatch metrics query, we add extra 2s buffer
+    lambda_start_time = datetime.utcnow() - timedelta(seconds=query_plan.total_elapsed_time + 2)
+
     tuples = collate.tuples()
     # collate.print_tuples(tuples)
 
     # Write the metrics
     query_plan.print_metrics()
 
-    print("Lambda Cost")
+    # get lambda_return_bytes
+    lambda_return_bytes = 0
+    for p in range(start_part, start_part + table_parts):
+        op = query_plan.get_operator('lambda_scan_{}'.format(p))
+        lambda_return_bytes += op.op_metrics.bytes_returned   
+    
+    # print lambda cost
+    lambda_cost = get_lambda_cost(lambda_start_time, lambda_return_bytes)
+
+    # print total cost
+    print("Total Cost")
     print("--------")
-    print('lambda_duration_cost:', "${0:.8f}".format(lambda_duration_cost()))
-    print('lambda_invocation_cost:', "${0:.8f}".format(lambda_invocation_cost()))
+    cost, bytes_scanned, bytes_returned, http_requests, rows = query_plan.cost()
+    query_plan.get_operator
+    print("${0:.8f}".format(lambda_cost + cost))
+    print('')
 
     # Shut everything down
     query_plan.stop()
 
-def lambda_duration_cost():
+def get_lambda_cost(start_time, lambda_return_bytes):
     '''
-    get duration from cloud watch, and calculate the actual cost
+    get metrics from cloud watch, and calculate the actual cost
     '''
     retries = 0 
     max_retries = 10
     response = None
+    cloudwatch = boto3.client('cloudwatch', region_name= Lambda_Region_Name)
+    end_time = None
 
     while True:
-        # Define start time and end time (last 5 minutes)
-        start_time = datetime.utcnow() - timedelta(minutes=5) 
+        # Define end time
         end_time = datetime.utcnow()
-
-        cloudwatch = boto3.client('cloudwatch', region_name= Lambda_Region_Name)
         response = cloudwatch.get_metric_statistics(
             Namespace='AWS/Lambda',
             MetricName='Duration',
@@ -119,7 +136,7 @@ def lambda_duration_cost():
             StartTime=start_time,
             EndTime=end_time,
             Period=300,   # Period for statistics (300 seconds - 5 minutes)
-            Statistics=['Maximum']  # Retrieve the maximum value
+            Statistics=['Sum']  # Retrieve the maximum value
         )
         if len(response['Datapoints']) == 0:
             retries += 1
@@ -131,24 +148,10 @@ def lambda_duration_cost():
         else:
             break
 
-    # sorted by timestamp
-    sorted_datapoints = sorted(response['Datapoints'], key=lambda x: x['Timestamp'])
-    # print(sorted_datapoints)
-    latest_datapoint = sorted_datapoints[-1]
-    # print(latest_datapoint)
-    return latest_datapoint['Maximum'] / 1000 * COST_LAMBDA_DURATION_PER_SECOND
+    sum_duration = sum(datapoint['Sum'] for datapoint in response['Datapoints'])
+    lambda_duration_cost = sum_duration / 1000 * COST_LAMBDA_DURATION_PER_SECOND
 
-def lambda_invocation_cost():
-    '''
-    get invocations from cloud watch, and calculate the actual cost
-    '''
-    cloudwatch = boto3.client('cloudwatch', region_name=Lambda_Region_Name)
-
-    # Define start time and end time (last 5 minutes)
-    start_time = datetime.utcnow() - timedelta(minutes=5)
-    end_time = datetime.utcnow()
-
-    # Get 'Invocations' metric
+    # get invocations metrics
     invocations_response = cloudwatch.get_metric_statistics(
         Namespace='AWS/Lambda',
         MetricName='Invocations',
@@ -160,7 +163,28 @@ def lambda_invocation_cost():
     )
 
     invocations_sum = sum([datapoint['Sum'] for datapoint in invocations_response['Datapoints']])
-    return invocations_sum * COST_LAMBDA_REQUEST_PER_REQ
+    lambda_invocation_cost = invocations_sum * COST_LAMBDA_REQUEST_PER_REQ
+
+    # get transfer metrics
+    '''
+    Assumption: EC2 and lambda is on the same region, region has just 3 AZs
+    Cost: if EC2 and lambda are on different AZs
+    But hard to position the Available Zone lambda run on, so plan to calculate the average cost(cost * 2/3)
+    '''
+    lambda_transfer_cost = lambda_return_bytes * BYTE_TO_GB * COST_LAMBDA_DATA_TRANSFER_PER_GB * 2/3
+
+    # print lambda_total_cost
+    lambda_total_cost = lambda_duration_cost + lambda_invocation_cost + lambda_transfer_cost
+
+    print("Lambda Cost")
+    print("--------")
+    print('lambda_duration_cost:', "${0:.8f}".format(lambda_duration_cost))
+    print('lambda_invocation_cost:', "${0:.8f}".format(lambda_invocation_cost))
+    print('lambda_transfer_cost:', "${0:.8f}".format(lambda_transfer_cost))
+    print('lambda_total_cost:', "${0:.8f}".format(lambda_total_cost)) 
+    print('')
+
+    return lambda_total_cost
 
 if __name__ == "__main__":
     main()
