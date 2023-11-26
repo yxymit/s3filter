@@ -141,7 +141,7 @@ class SQLTableScan(Operator):
             else:
                 raise Exception("Unrecognized message {}".format(m))
 
-    def __init__(self, s3key, s3sql, format_, use_pandas, secure, use_native, name, query_plan, log_enabled, fn=None):
+    def __init__(self, s3key, s3sql, format_, use_pandas, secure, use_native, name, query_plan, log_enabled, fn=None, chunksize=10000):
         """Creates a new Table Scan operator using the given s3 object key and s3 select sql
         :param s3key: The object key to select against
         :param s3sql: The s3 select sql
@@ -172,6 +172,7 @@ class SQLTableScan(Operator):
 
         # self.filter_fn = fn
         self.format_ = format_
+        self.chunksize = chunksize
 
     def run(self):
         """Executes the query and begins emitting tuples.
@@ -283,9 +284,9 @@ class SQLTableScan(Operator):
             # return cur
         else:
             if op.format_ is Format.CSV:
-                cur = PandasCursor(op.s3).csv().select(op.s3key, op.s3sql)
+                cur = PandasCursor(op.s3, op.chunksize).csv().select(op.s3key, op.s3sql)
             elif op.format_ is Format.PARQUET:
-                cur = PandasCursor(op.s3).parquet().select(op.s3key, op.s3sql)
+                cur = PandasCursor(op.s3, op.chunksize).parquet().select(op.s3key, op.s3sql)
             else:
                 raise Exception("Unrecognized format {}", op.format_)
 

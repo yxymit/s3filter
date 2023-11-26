@@ -28,7 +28,7 @@ class PandasCursor(object):
 
     """
 
-    def __init__(self, s3):
+    def __init__(self, s3, chunksize=10000):
 
         self.s3 = s3
 
@@ -52,6 +52,7 @@ class PandasCursor(object):
         self.table_data = None
 
         self.input = Format.CSV
+        self.chunksize = chunksize
 
     def parquet(self):
         self.input = Format.PARQUET
@@ -267,10 +268,11 @@ class PandasCursor(object):
                                       prefix='_', dtype=numpy.str,
                                       engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
                                       skiprows=1,
-                                      chunksize=10 ** 7):
+                                      chunksize=self.chunksize):
                     # Get read bytes
                     # self.bytes_returned += ip_stream.tell()
-                    self.bytes_returned += self.table_data.tell()
+                    # self.bytes_returned += self.table_data.tell()
+                    self.bytes_returned = self.table_data.tell()
 
                     # # drop last column since the line separator | creates a new empty column at the end of every record
                     # df_col_names = list(df)

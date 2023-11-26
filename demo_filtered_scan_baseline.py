@@ -17,12 +17,13 @@ import pandas as pd
 import numpy as np
 
 def main():
-    run(True, True, 0, 1, 2, 'access_method_benchmark/shards-1GB', Format.CSV)
+    run(True, True, 0, 1, 2, 'access_method_benchmark/shards-1GB', Format.CSV, 10000)
 
 
-def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format_):
+def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format_, chunksize):
     """
     Baseline of filter scan: fetch whole data to local server, then filter (all streaming pipeline)
+    chunksize: chunck size to read from S3 response
     :return:
     """
     secure = False
@@ -36,6 +37,12 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
 
     # Build Query plan
     scans = []
+
+    def pandas_fn(df):
+        """Project and Filtering logic for pandas dataframe"""
+        # select columns
+        return df.loc[df['_5'].astype(np.float) < 2000, ['_0', '_5']]
+
     for p in range(start_part, start_part + table_parts):
         scans.append(
             query_plan.add_operator(
@@ -46,41 +53,9 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
                             secure=secure, use_native=use_native,
                             name='baseline_scan_{}'.format(p),
                             query_plan=query_plan,
-                            log_enabled=False))
-        )
-
-    # project
-    def pandas_fn(df):
-        """filtering logic for pandas dataframe"""
-        # select columns
-        df = df[['_0', '_5']]
-        df['_5'] = df['_5'].astype(np.float)  # convert dtype: l_extendedprice
-        return df
-
-    projects = []
-    for p in range(start_part, start_part + table_parts):
-        projects.append(
-            query_plan.add_operator(
-                Project(project_exprs=[], 
-                        name='local_project_{}'.format(p), 
-                        query_plan=query_plan, 
-                        log_enabled=False, 
-                        pandas_fn=pandas_fn))
-        )
-
-    # filters
-    def pd_expr(df):
-        # expression for filtering condition
-        return df['_0'] == '1'
-
-    filters = []
-    for p in range(start_part, start_part + table_parts):
-        filters.append(
-            query_plan.add_operator(
-                Filter(expression=PredicateExpression(expr=None, pd_expr=pd_expr),
-                        name='local_filter_{}'.format(p),
-                        query_plan=query_plan,
-                        log_enabled=False))
+                            log_enabled=False,
+                            fn=pandas_fn,
+                            chunksize=chunksize))
         )
 
     # collate
@@ -88,9 +63,7 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
 
     # connect operators
     for p in range(len(scans)):
-        scans[p].connect(projects[p])
-        projects[p].connect(filters[p])
-        filters[p].connect(collate)
+        scans[p].connect(collate)
 
 
     # Plan settings
