@@ -32,12 +32,13 @@ def main():
     filter_expr =  "_5 < 2000"  # "_0 == '1'"
     start_part = 1
     table_parts = 2 
+    chunk_size = 10000
     run(parallel=True, 
         start_part=start_part, table_parts=table_parts, path=path, 
-        select_fields=select_fields, filter_expr=filter_expr)
+        select_fields=select_fields, filter_expr=filter_expr, chunk_size=chunk_size)
 
 
-def run(parallel, start_part, table_parts, path, select_fields, filter_expr):
+def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chunk_size):
     secure = False
     use_native = False
     use_pandas = True
@@ -58,7 +59,7 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr):
                         filter_expr=filter_expr,
                         name='lambda_scan_{}'.format(p),
                         query_plan=query_plan,
-                        log_enabled=False))
+                        log_enabled=False, chunk_size=chunk_size))
                     )
 
     collate = query_plan.add_operator(

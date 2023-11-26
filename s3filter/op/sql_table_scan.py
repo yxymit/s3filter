@@ -478,7 +478,7 @@ class SQLTableScanLambda(Operator):
             else:
                 raise Exception("Unrecognized message {}".format(m))
 
-    def __init__(self, s3key, select_fields, filter_expr, name, query_plan, log_enabled):
+    def __init__(self, s3key, select_fields, filter_expr, name, query_plan, log_enabled, chunk_size):
         """Creates a new Table Scan operator using the given s3 object key and s3 select sql
         :param s3key: The object key to select against
         :param select_fields: The fileds to query
@@ -498,7 +498,7 @@ class SQLTableScanLambda(Operator):
 
         # data buffer
         self.global_topk_df = pd.DataFrame()
-        self.chunk_size = 1024
+        self.chunk_size = chunk_size
 
     def run(self):
         """Executes the query and begins emitting tuples.
