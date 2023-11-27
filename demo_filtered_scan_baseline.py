@@ -3,6 +3,7 @@
 
 """
 import os
+import sys
 
 from s3filter import ROOT_DIR
 from s3filter.op.collate import Collate
@@ -16,11 +17,11 @@ from s3filter.util.test_util import gen_test_id
 import pandas as pd
 import numpy as np
 
-def main():
-    run(True, True, 0, 1, 2, 'access_method_benchmark/shards-1GB', Format.CSV, 10000)
+def main(filter_value):
+    run(True, True, 0, 1, 2, 'access_method_benchmark/shards-1GB', Format.CSV, 10000, filter_value)
 
 
-def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format_, chunksize):
+def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format_, chunksize, filter_value):
     """
     Baseline of filter scan: fetch whole data to local server, then filter (all streaming pipeline)
     chunksize: chunck size to read from S3 response
@@ -41,7 +42,7 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
     def pandas_fn(df):
         """Project and Filtering logic for pandas dataframe"""
         # select columns
-        return df.loc[df['_5'].astype(np.float) < 2000, ['_0', '_5']]
+        return df.loc[df['_5'].astype(np.float) < filter_value, ['_0', '_5']]
 
     for p in range(start_part, start_part + table_parts):
         scans.append(
@@ -92,4 +93,10 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
 
 
 if __name__ == "__main__":
-    main()
+    # Check if the filter condition value is provided as a command line argument
+    if len(sys.argv) < 2:
+        print("Please provide the filter condition value as an argument.")
+        sys.exit() 
+    
+    # pass filter_value
+    main(int(sys.argv[1]))

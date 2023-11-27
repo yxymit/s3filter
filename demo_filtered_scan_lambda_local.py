@@ -4,6 +4,7 @@
 """
 
 import os
+import sys
 
 from s3filter import ROOT_DIR
 from s3filter.op.collate import Collate
@@ -29,10 +30,9 @@ COST_LAMBDA_REQUEST_PER_REQ = 0.0000002
 # EC2 in and out different AZ
 COST_LAMBDA_DATA_TRANSFER_PER_GB = 0.01
 
-def main():
+def main(filter_expr):
     path = 'access_method_benchmark/shards-1GB'
     select_fields = "_0|_5"  # [l_orderkey, l_extendedprice]
-    filter_expr =  "_5 < 2000"  # "_0 == '1'"
     start_part = 1
     table_parts = 2 
     chunk_size = 10000
@@ -187,4 +187,13 @@ def get_lambda_cost(start_time, lambda_return_bytes):
     return lambda_total_cost
 
 if __name__ == "__main__":
-    main()
+
+    # Check if the filter condition value is provided as a command line argument
+    if len(sys.argv) < 2:
+        print("Please provide the filter condition value as an argument.")
+        sys.exit() 
+    
+    filter_value = sys.argv[1]  # Get the argument passed in the command line as the filter condition value
+    filter_expr = f"_5 < {filter_value}"  # Use f-string to embed the input value into the filter condition
+    
+    main(filter_expr)
