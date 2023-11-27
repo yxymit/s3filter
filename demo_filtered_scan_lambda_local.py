@@ -34,7 +34,7 @@ def main(filter_expr):
     path = 'access_method_benchmark/shards-1GB'
     select_fields = "_0|_5"  # [l_orderkey, l_extendedprice]
     start_part = 1
-    table_parts = 2 
+    table_parts = 10
     chunk_size = 10000
     run(parallel=True, 
         start_part=start_part, table_parts=table_parts, path=path, 
@@ -109,7 +109,6 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     print("Total Cost")
     print("--------")
     cost, bytes_scanned, bytes_returned, http_requests, rows = query_plan.cost()
-    query_plan.get_operator
     print("${0:.8f}".format(lambda_cost + cost))
     print('')
 

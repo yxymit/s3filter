@@ -96,14 +96,6 @@ class SQLTableScanMetrics(OpMetrics):
         :return: the estimated http GET request cost for this particular operation
         """
         return self.cost_estimator.estimate_request_cost()
-    
-    def lambda_data_transfer_cost(self):
-        '''
-        Assumption: EC2 and lambda is on the same region, region has just 3 AZs
-        Cost: if EC2 and lambda are on different AZs
-        But hard to position the Available Zone lambda run on, so plan to calculate the average cost(cost * 2/3)
-        '''
-        return self.bytes_returned * BYTE_TO_GB * COST_LAMBDA_DATA_TRANSFER_PER_GB * 2/3
 
     def __repr__(self):
         return {

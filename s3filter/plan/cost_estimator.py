@@ -123,8 +123,15 @@ class CostEstimator:
     """
 
     # These amounts vary by region, but for simplicity, let's assume it's a flat rate
-    COST_S3_DATA_RETURNED_PER_GB = 0.0007
-    COST_S3_DATA_SCANNED_PER_GB = 0.002
+
+    # we didn't include s3 select, so don't calculate it
+    # COST_S3_DATA_RETURNED_PER_GB = 0.0007
+    COST_S3_DATA_RETURNED_PER_GB = 0
+
+    # we didn't include s3 select scan, so don't calculate it
+    # COST_S3_DATA_SCANNED_PER_GB = 0.002
+    COST_S3_DATA_SCANNED_PER_GB = 0
+    
     REQUEST_PRICE = 0.0004 / 1000.0
     DATA_TRANSFER_PRICE_PER_GB = 0.09
     DATA_TRANSFER_PRICE_OTHER_REGION_PER_GB = 0.02
