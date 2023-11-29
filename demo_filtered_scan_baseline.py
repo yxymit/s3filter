@@ -99,4 +99,4 @@ if __name__ == "__main__":
         sys.exit() 
     
     # pass filter_value
-    main(int(sys.argv[1]))
+    main(float(sys.argv[1]))

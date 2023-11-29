@@ -290,7 +290,7 @@ class QueryPlan(object):
         print("total_returned_rows: {}".format(rows))
         print("computation_cost: ${0:.10f}".format(computation_cost))
         print("data_cost: ${0:.10f}".format(data_cost))
-        print("total_cost: ${0:.10f}".format(cost))
+        print("total_cost: ${0:.08f}".format(cost))
 
     def assert_operator_time_equals_plan_time(self):
         """Sanity check to make sure cumulative operator exec time approximately equals total plan exec time. We use a
