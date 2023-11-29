@@ -96,14 +96,8 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     # Write the metrics
     query_plan.print_metrics()
 
-    # get lambda_return_bytes
-    lambda_return_bytes = 0
-    for p in range(start_part, start_part + table_parts):
-        op = query_plan.get_operator('lambda_scan_{}'.format(p))
-        lambda_return_bytes += op.op_metrics.bytes_returned   
-    
     # print lambda cost
-    lambda_cost = get_lambda_cost(lambda_start_time, lambda_return_bytes)
+    lambda_cost = get_lambda_cost(lambda_start_time)
 
     # print total cost
     print("Total Cost")
@@ -115,7 +109,7 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     # Shut everything down
     query_plan.stop()
 
-def get_lambda_cost(start_time, lambda_return_bytes):
+def get_lambda_cost(start_time):
     '''
     get metrics from cloud watch, and calculate the actual cost
     '''
@@ -164,22 +158,13 @@ def get_lambda_cost(start_time, lambda_return_bytes):
     invocations_sum = sum([datapoint['Sum'] for datapoint in invocations_response['Datapoints']])
     lambda_invocation_cost = invocations_sum * COST_LAMBDA_REQUEST_PER_REQ
 
-    # get transfer metrics
-    '''
-    Assumption: EC2 and lambda is on the same region, region has just 3 AZs
-    Cost: if EC2 and lambda are on different AZs
-    But hard to position the Available Zone lambda run on, so plan to calculate the average cost(cost * 2/3)
-    '''
-    lambda_transfer_cost = lambda_return_bytes * BYTE_TO_GB * COST_LAMBDA_DATA_TRANSFER_PER_GB * 2/3
-
     # print lambda_total_cost
-    lambda_total_cost = lambda_duration_cost + lambda_invocation_cost + lambda_transfer_cost
+    lambda_total_cost = lambda_duration_cost + lambda_invocation_cost
 
     print("Lambda Cost")
     print("--------")
     print('lambda_duration_cost:', "${0:.8f}".format(lambda_duration_cost))
     print('lambda_invocation_cost:', "${0:.8f}".format(lambda_invocation_cost))
-    print('lambda_transfer_cost:', "${0:.8f}".format(lambda_transfer_cost))
     print('lambda_total_cost:', "${0:.8f}".format(lambda_total_cost)) 
     print('')
 
