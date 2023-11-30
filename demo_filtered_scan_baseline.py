@@ -42,7 +42,7 @@ def run(parallel, use_pandas, buffer_size, start_part, table_parts, path, format
     def pandas_fn(df):
         """Project and Filtering logic for pandas dataframe"""
         # select columns
-        return df.loc[df['_5'].astype(np.float) < filter_value, ['_0', '_5']]
+        return df.loc[df['_5'].astype(float) < filter_value, ['_0', '_5']]
 
     for p in range(start_part, start_part + table_parts):
         scans.append(

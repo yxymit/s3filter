@@ -54,6 +54,11 @@ class PandasCursor(object):
         self.input = Format.CSV
         self.chunksize = chunksize
 
+        self.config = TransferConfig(
+            multipart_chunksize=8 * MB,
+            multipart_threshold=8 * MB
+        )
+
     def parquet(self):
         self.input = Format.PARQUET
         return self
@@ -95,10 +100,10 @@ class PandasCursor(object):
         if not self.need_s3select:
 
             # if not os.path.exists(self.table_local_file_path) or not USE_CACHED_TABLES:
-            config = TransferConfig(
-                multipart_chunksize=8 * MB,
-                multipart_threshold=8 * MB
-            )
+            # config = TransferConfig(
+            #     multipart_chunksize=8 * MB,
+            #     multipart_threshold=8 * MB
+            # )
 
             self.table_data = io.BytesIO()
 
@@ -108,13 +113,13 @@ class PandasCursor(object):
                     Bucket=S3_BUCKET_NAME,
                     Key=self.s3key,
                     Fileobj=self.table_data,
-                    Config=config
+                    Config=self.config
                 )
 
             except Exception as e:
                 print("Error downloading key {} with message: {}".format(self.s3key, e.message))
 
-            self.num_http_get_requests = PandasCursor.calculate_num_http_requests(self.table_data, config)
+            # self.num_http_get_requests = PandasCursor.calculate_num_http_requests(self.table_data, config)
 
             return self.parse_file()
         else:
@@ -265,7 +270,7 @@ class PandasCursor(object):
                 self.table_data.seek(0)
                 for df in pd.read_csv(self.table_data, delimiter='|',
                                       header=None,
-                                      prefix='_', dtype=numpy.str,
+                                      prefix='_', dtype=str,
                                       engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
                                       skiprows=1,
                                       chunksize=self.chunksize):
@@ -280,6 +285,7 @@ class PandasCursor(object):
                     # df.drop(last_col, axis=1, inplace=True)
 
                     yield df
+                self.num_http_get_requests = PandasCursor.calculate_num_http_requests(self.table_data, self.config)
             elif self.input is Format.PARQUET:
 
                 table = pq.read_table(self.table_data)
@@ -320,6 +326,13 @@ class PandasCursor(object):
                 with open(self.table_local_file_path, 'w') as table_file:
                     table_file.write(self.table_data.getvalue())
 
+    # @staticmethod
+    # def calculate_num_http_requests(table_data, config):
+    #     if table_data is not None and len(table_data.getvalue()):
+    #         shard_max_size = config.multipart_threshold
+    #         return math.ceil(len(table_data.getvalue()) / (1.0 * shard_max_size))
+
+    #     return 1
     @staticmethod
     def calculate_num_http_requests(table_data, config):
         if table_data is not None and len(table_data.getvalue()):
