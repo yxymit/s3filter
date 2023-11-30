@@ -5,6 +5,7 @@ import os
 import io
 import time
 import json
+import math 
 
 from boto3 import Session
 from botocore.config import Config
@@ -67,7 +68,6 @@ def run(s3key, select_fields, filter_expr, file_format):
         Config=config
     )
 
-    metrics["num_http_get_requests"] = 1
     # parse and filter stream
     chunksize = 10000  # number of rows 
 
@@ -79,15 +79,15 @@ def run(s3key, select_fields, filter_expr, file_format):
                                 engine='c', quotechar='"', na_filter=False, compression=None, low_memory=False,
                                 skiprows=1,
                                 chunksize=chunksize):  # dtype=str,
-            # Get read bytes
-            # metrics["bytes_returned"] += table_data.tell()
+
             # filter
             df.columns = ["_" + str(col) for col in df.columns]  # add prefix
             filtering_result = df.eval(filter_expr)
             df = df[filtering_result]
             if df.shape[0] > 0:
                 global_df = pd.concat([global_df, df[select_fields]], ignore_index=True)               
-            
+        # Get read bytes
+        metrics["num_http_get_requests"] = math.ceil(table_data.tell() / config.multipart_threshold)
         metrics["time_to_last_record_response"] = time.time() - start_time
     else:
         raise Exception("Unrecognized input type '{}'".format(file_format))

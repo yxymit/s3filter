@@ -533,7 +533,7 @@ class SQLTableScanLambda(Operator):
         self.op_metrics.bytes_returned = metrics_parsed['bytes_returned']
         self.op_metrics.time_to_first_record_response = metrics_parsed['time_to_first_record_response']
         self.op_metrics.time_to_last_record_response = metrics_parsed['time_to_last_record_response']
-        # self.op_metrics.num_http_get_requests = cur.num_http_get_requests
+        self.op_metrics.num_http_get_requests = metrics_parsed['num_http_get_requests']
 
         # complete signal
         if not self.is_completed():
