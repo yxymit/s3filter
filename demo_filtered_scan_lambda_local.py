@@ -85,10 +85,14 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     query_plan.write_graph(os.path.join(ROOT_DIR, "../benchmark-output"), gen_test_id() + "-" + str(table_parts))
 
     # Start the query
+    # START_TIME is for cloudwatch metrics query, we add extra 2s buffer
+    lambda_start_time = datetime.utcnow()
+
     query_plan.execute()
     print('Done')
-    # START_TIME is for cloudwatch metrics query, we add extra 2s buffer
-    lambda_start_time = datetime.utcnow() - timedelta(seconds=query_plan.total_elapsed_time + 2)
+
+    lambda_end_time = datetime.utcnow()
+
 
     tuples = collate.tuples()
     # collate.print_tuples(tuples)
@@ -97,7 +101,7 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     query_plan.print_metrics()
 
     # print lambda cost
-    lambda_cost = get_lambda_cost(lambda_start_time)
+    lambda_cost = get_lambda_cost(lambda_start_time, lambda_end_time)
 
     # print total cost
     print("Total Cost")
@@ -109,7 +113,7 @@ def run(parallel, start_part, table_parts, path, select_fields, filter_expr, chu
     # Shut everything down
     query_plan.stop()
 
-def get_lambda_cost(start_time):
+def get_lambda_cost(start_time, end_time):
     '''
     get metrics from cloud watch, and calculate the actual cost
     '''
@@ -117,18 +121,17 @@ def get_lambda_cost(start_time):
     max_retries = 10
     response = None
     cloudwatch = boto3.client('cloudwatch', region_name= Lambda_Region_Name)
-    end_time = None
-
+    print("wait 60 seconds to make sure cloudWatch metrics have updated")
+    time.sleep(60)
     while True:
         # Define end time
-        end_time = datetime.utcnow()
         response = cloudwatch.get_metric_statistics(
             Namespace='AWS/Lambda',
             MetricName='Duration',
             Dimensions=[{'Name': 'FunctionName', 'Value': Lambda_Function_Name}],
-            StartTime=start_time,
-            EndTime=end_time,
-            Period=300,   # Period for statistics (300 seconds - 5 minutes)
+            StartTime=start_time - timedelta(seconds=60),
+            EndTime=end_time + timedelta(seconds=60),
+            Period=120,   # Period for statistics (60 seconds - 1 minutes)
             Statistics=['Sum']  # Retrieve the maximum value
         )
         if len(response['Datapoints']) == 0:
@@ -149,13 +152,13 @@ def get_lambda_cost(start_time):
         Namespace='AWS/Lambda',
         MetricName='Invocations',
         Dimensions=[{'Name': 'FunctionName', 'Value': Lambda_Function_Name}],
-        StartTime=start_time,
-        EndTime=end_time,
-        Period=300,
+        StartTime=start_time - timedelta(seconds=60),
+        EndTime=end_time + timedelta(seconds=60),
+        Period=120,
         Statistics=['Sum']
     )
 
-    invocations_sum = sum([datapoint['Sum'] for datapoint in invocations_response['Datapoints']])
+    invocations_sum = sum(datapoint['Sum'] for datapoint in invocations_response['Datapoints'])
     lambda_invocation_cost = invocations_sum * COST_LAMBDA_REQUEST_PER_REQ
 
     # print lambda_total_cost
@@ -163,6 +166,10 @@ def get_lambda_cost(start_time):
 
     print("Lambda Cost")
     print("--------")
+    print("start_time", start_time - timedelta(seconds=60))
+    print("end_time", end_time + timedelta(seconds=60))
+    print("invocations_sum:", str(invocations_sum))
+    print("sum_duration:", str(sum_duration))
     print('lambda_duration_cost:', "${0:.8f}".format(lambda_duration_cost))
     print('lambda_invocation_cost:', "${0:.8f}".format(lambda_invocation_cost))
     print('lambda_total_cost:', "${0:.8f}".format(lambda_total_cost)) 
