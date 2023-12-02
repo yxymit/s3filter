@@ -31,7 +31,8 @@ class Collate(Operator):
 
         self.__tuples = []
 
-        self.df = DataFrame()
+        # self.df = DataFrame()
+        self.df = []
 
     def tuples(self):
         """Accessor for the collated tuples
@@ -57,7 +58,8 @@ class Collate(Operator):
 
         :return: The collated tuples
         """
-
+        df = pd.concat(self.df)
+        self.__tuples = [list(df)] + df.values.tolist()
         return self.__tuples
 
     def on_receive(self, ms, _producer):
@@ -97,8 +99,9 @@ class Collate(Operator):
         # TODO: Also adding to tuples for now just so the existing tests work,
         # eventually they should inspect the dataframe
 
-        self.df = pd.concat([self.df, df])
-        self.__tuples = [list(self.df)] + self.df.values.tolist()
+        # self.df = pd.concat([self.df, df])
+        self.df.append(df)
+        # self.__tuples = [list(self.df)] + self.df.values.tolist()
 
         #self.__tuples.extend(df.values.tolist())
         #self.df = self.df.append(df)
