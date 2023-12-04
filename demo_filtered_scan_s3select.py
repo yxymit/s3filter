@@ -11,13 +11,14 @@ from s3filter.op.sql_table_scan import SQLTableScan
 from s3filter.plan.query_plan import QueryPlan
 from s3filter.sql.format import Format
 from s3filter.util.test_util import gen_test_id
+import sys
 
 
-def main():
-    run(True, True, 0, 2, 0.01, 'access_method_benchmark/shards-1GB', Format.CSV)
+def main(price_value):
+    run(True, True, 0, 10, 0.01, 'access_method_benchmark/shards-1GB', Format.CSV, price_value)
 
 
-def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_):
+def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_, price_value):
     secure = False
     use_native = False
     print('')
@@ -35,7 +36,7 @@ def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_):
         scan.append(query_plan.add_operator(
             SQLTableScan('{}/lineitem.{}.csv'.format(path, p),
                         "select * from S3Object "
-                        " where L_ORDERKEY = '1';", format_,
+                        "where L_EXTENDEDPRICE < '{}';".format(price_value), format_,
                         use_pandas, secure, use_native,
                         'scan_{}'.format(p), query_plan,
                         False)))
@@ -88,4 +89,9 @@ def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_):
 
 
 if __name__ == "__main__":
-    main()
+    # Check if the filter condition value is provided as a command line argument
+    if len(sys.argv) < 2:
+        print("Please provide the filter condition value as an argument.")
+        sys.exit() 
+
+    main(float(sys.argv[1]))
