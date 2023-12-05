@@ -336,7 +336,7 @@ class PandasCursor(object):
     @staticmethod
     def calculate_num_http_requests(table_data, config):
         if table_data is not None and len(table_data.getvalue()):
-            shard_max_size = config.multipart_threshold
+            shard_max_size = config.multipart_chunksize
             return math.ceil(len(table_data.getvalue()) / (1.0 * shard_max_size))
 
         return 1

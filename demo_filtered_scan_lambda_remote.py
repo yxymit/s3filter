@@ -47,7 +47,7 @@ def run(s3key, select_fields, filter_expr, file_format):
     start_time = time.time()
 
     # init dataframe as global buffer
-    global_df = pd.DataFrame()
+    global_df = []
 
     # init S3 client
     cfg = Config(region_name="us-east-2", parameter_validation=False, max_pool_connections=10)
@@ -58,7 +58,7 @@ def run(s3key, select_fields, filter_expr, file_format):
     # fetch file chunck
     table_data = io.BytesIO()
     config = TransferConfig(
-        multipart_chunksize=8 * MB,
+        multipart_chunksize=16 * MB,
         multipart_threshold=8 * MB
     )
     s3.download_fileobj(
@@ -69,7 +69,7 @@ def run(s3key, select_fields, filter_expr, file_format):
     )
 
     # parse and filter stream
-    chunksize = 10000  # number of rows 
+    chunksize = 200000  # number of rows 
 
     if file_format == 'CSV':
         metrics["time_to_first_record_response"] = time.time() - start_time
@@ -85,9 +85,11 @@ def run(s3key, select_fields, filter_expr, file_format):
             filtering_result = df.eval(filter_expr)
             df = df[filtering_result]
             if df.shape[0] > 0:
-                global_df = pd.concat([global_df, df[select_fields]], ignore_index=True)               
+                global_df.append(df[select_fields])
+        # list to dataframe
+        global_df = pd.concat(global_df, ignore_index=True) 
         # Get read bytes
-        metrics["num_http_get_requests"] = math.ceil(table_data.tell() / config.multipart_threshold)
+        metrics["num_http_get_requests"] = math.ceil(table_data.tell() / config.multipart_chunksize)
         metrics["time_to_last_record_response"] = time.time() - start_time
     else:
         raise Exception("Unrecognized input type '{}'".format(file_format))
