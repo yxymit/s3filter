@@ -15,10 +15,10 @@ import sys
 
 
 def main(price_value):
-    run(True, True, 0, 10, 0.01, 'access_method_benchmark/shards-1GB', Format.CSV, price_value)
+    run(True, True, 0, 10, 'access_method_benchmark/shards-1GB', Format.CSV, price_value)
 
 
-def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_, price_value):
+def run(parallel, use_pandas, buffer_size, table_parts, path, format_, price_value):
     secure = False
     use_native = False
     print('')
@@ -29,14 +29,12 @@ def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_, pri
     query_plan = QueryPlan(is_async=parallel, buffer_size=buffer_size)
 
     # Scan Index Files
-    # upper = perc * 100
-    upper = 0.1
     scan = []
     for p in range(1, table_parts + 1):
         scan.append(query_plan.add_operator(
             SQLTableScan('{}/lineitem.{}.csv'.format(path, p),
-                        "select * from S3Object "
-                        "where L_EXTENDEDPRICE < '{}';".format(price_value), format_,
+                        "select L_ORDERKEY, L_EXTENDEDPRICE from S3Object "
+                        "where cast(L_EXTENDEDPRICE as float) < {};".format(price_value), format_,
                         use_pandas, secure, use_native,
                         'scan_{}'.format(p), query_plan,
                         False)))
@@ -47,20 +45,6 @@ def run(parallel, use_pandas, buffer_size, table_parts, perc, path, format_, pri
 
     for p, opt in enumerate(scan):
         opt.connect(collate)
-
-    # scan = map(lambda p:
-    #            query_plan.add_operator(
-    #                SQLTableScan('{}/lineitem_{}.csv'.format(path, p),
-    #                             "select * from S3Object "
-    #                             " where cast(L_DISCOUNT as float) = {};".format(upper), format_,
-    #                             use_pandas, secure, use_native,
-    #                             'scan_{}'.format(p), query_plan,
-    #                             False)),
-    #            range(0, table_parts))
-
-
-
-    # map(lambda p, o: o.connect(collate), enumerate(scan))
 
     # Plan settings
     print('')
