@@ -87,7 +87,10 @@ def run(s3key, select_fields, filter_expr, file_format):
             if df.shape[0] > 0:
                 global_df.append(df[select_fields])
         # list to dataframe
-        global_df = pd.concat(global_df, ignore_index=True) 
+        if len(global_df) > 0:
+            global_df = pd.concat(global_df, ignore_index=True) 
+        else:
+            global_df = pd.DataFrame()
         # Get read bytes
         metrics["num_http_get_requests"] = math.ceil(table_data.tell() / config.multipart_chunksize)
         metrics["time_to_last_record_response"] = time.time() - start_time
