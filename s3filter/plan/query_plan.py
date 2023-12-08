@@ -386,29 +386,38 @@ class QueryPlan(object):
 
     def listen(self, message_type):
         # type: (TypeVar[MessageBase]) -> MessageBase
-        try:
-            if self.use_shared_mem:
-                msg = self.system.listen(message_type)
-                return msg
-            else:
-                while True:
-                    p_item = self.queue.get()
-                    # item = cPickle.loads(p_item)
-                    item = pickle.loads(p_item)
-                    # print(item)
+        if message_type == EvaluatedMessage and not self.use_shared_mem:
+            received_chunks = []
+            chunk_num = self.queue.get()
+            for _ in range(chunk_num):
+                received_chunks.append(self.queue.get())
+            item = pickle.loads(b"".join(received_chunks))
+            return item
 
-                    if type(item) == message_type:
-                        return item
-                    else:
-                        # Not the message being listened for, warn and skip
-                        # This isn't exceptional, but the listener should be made aware that there are messages arriving that
-                        # are being ignored
-                        warning("While listening for message type {} received message type {} with contents {}".format(message_type, type(item), item))
+        else:
+            # completion message
+            try:
+                if self.use_shared_mem:
+                    msg = self.system.listen(message_type)
+                    return msg
+                else:
+                    while True:
+                        p_item = self.queue.get()
+                        # item = cPickle.loads(p_item)
+                        item = pickle.loads(p_item)
+
+                        if type(item) == message_type:
+                            return item
+                        else:
+                            # Not the message being listened for, warn and skip
+                            # This isn't exceptional, but the listener should be made aware that there are messages arriving that
+                            # are being ignored
+                            warning("While listening for message type {} received message type {} with contents {}".format(message_type, type(item), item))
 
 
-        except BaseException as e:
-            tb = traceback.format_exc(e)
-            print(tb)
+            except BaseException as e:
+                tb = traceback.format_exc(e)
+                print(tb)
 
     def stop(self):
         if self.is_async:

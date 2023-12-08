@@ -58,8 +58,10 @@ class Collate(Operator):
 
         :return: The collated tuples
         """
-        df = pd.concat(self.df)
-        self.__tuples = [list(df)] + df.values.tolist()
+        if isinstance(self.df, list):
+            self.df = pd.concat(self.df)
+        self.__tuples = [list(self.df)] + self.df.values.tolist()
+        self.df = DataFrame()
         return self.__tuples
 
     def on_receive(self, ms, _producer):

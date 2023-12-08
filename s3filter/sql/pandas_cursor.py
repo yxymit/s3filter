@@ -200,7 +200,7 @@ class PandasCursor(object):
 
                 if records_str_rdr.tell() > 1024 * 1024 * 16:
                     records_str_rdr.seek(0)
-                    df = pd.read_csv(records_str_rdr, header=None, prefix='_', dtype=str, engine='c',
+                    df = pd.read_csv(records_str_rdr, header=None, prefix='_', engine='c',
                                      quotechar='"', na_filter=False, compression=None, low_memory=False)
                     records_str_rdr.close()
                     # records_str_rdr = cStringIO.StringIO()
@@ -234,7 +234,7 @@ class PandasCursor(object):
 
                 if records_str_rdr.tell() > 0:
                     records_str_rdr.seek(0)
-                    df = pd.read_csv(records_str_rdr, header=None, prefix='_', dtype=str, engine='c',
+                    df = pd.read_csv(records_str_rdr, header=None, prefix='_', engine='c',
                                      quotechar='"', na_filter=False, compression=None, low_memory=False)
                     records_str_rdr.flush()
                     records_str_rdr.close()

@@ -12,6 +12,7 @@ import multiprocessing
 import time
 import traceback
 import pandas as pd
+import math
 
 from s3filter.multiprocessing.channel import Channel
 from s3filter.multiprocessing.handler_base import HandlerBase
@@ -128,7 +129,12 @@ class Operator(HandlerBase):
                 elif type(item) == EvalMessage:
                     evaluated = eval(item.expr)
                     p_evaluated = pickle.dumps(EvaluatedMessage(evaluated))
-                    self.completion_queue.put(p_evaluated)
+                    del evaluated
+                    evaled_chucksize = 1024 * 1
+                    self.completion_queue.put(math.ceil(len(p_evaluated) / evaled_chucksize))
+                    for offset in range(0, len(p_evaluated), evaled_chucksize):
+                        self.completion_queue.put(p_evaluated[offset: offset + evaled_chucksize])
+                    # self.completion_queue.put(p_evaluated)
                 else:
                     message = item[0]
                     sender = item[1]
